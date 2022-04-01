@@ -1,6 +1,8 @@
 const Koa = require('koa')
 const fs = require('fs')
 const path = require('path')
+const compilerSfc = require('@vue/compiler-sfc')
+const compilerDom = require('@vue/compiler-dom')
 const app = new Koa()
 app.use(async ctx => {
     const { url, query } = ctx.request
@@ -41,6 +43,30 @@ app.use(async ctx => {
         const ret = fs.readFileSync(p, 'utf-8')
         ctx.type = 'application/javascript'
         ctx.body = rewriteImport(ret)
+    }
+
+    //  支持SFC组件 单文件组件
+    // *.vue => template script （compiler-sfc）
+    // template => render函数 （compiler-dom）
+    else if (url.includes('.vue')) {
+        const p = path.resolve(__dirname, url.split('?')[0].slice(1))
+        const { descriptor } = compilerSfc.parse(fs.readFileSync(p, 'utf-8'))
+        if (!query.type) {// descriptor => js + template 生成render部分
+            ctx.type = 'application/javascript'
+            ctx.body = `
+                ${rewriteImport(
+                descriptor.script.content.replace('export default', 'const __script = ')
+            )}
+                import {render as __render} from "${url}?type=template"
+                __script.render = __render
+                export default __script
+                `
+        } else {
+            const template = descriptor.template
+            const render = compilerDom.compile(template.content, { mode: 'module' })
+            ctx.type = 'application/javascript'
+            ctx.body = rewriteImport(render.code)
+        }
     }
 
     // 第三方库支持
