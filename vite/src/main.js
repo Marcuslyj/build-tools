@@ -1,2 +1,13 @@
-import { str } from './moduleA.js'
-console.log('vite...', str)
+// import { str } from './moduleA.js'
+// console.log('vite...', str)
+
+// 支持第三方库
+import { createApp, h } from 'vue'
+
+const App = {
+    render() {
+        return h('div', null, 'hello hi')
+    }
+}
+
+createApp(App).mount('#app')
